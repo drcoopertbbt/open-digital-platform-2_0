@@ -9,10 +9,10 @@ from opentelemetry import metrics, trace
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import ConsoleMetricExporter, PeriodicExportingMetricReader
 from opentelemetry.exporter.prometheus import PrometheusMetricReader
-from opentelemetry.trace import TracerProvider
-from opentelemetry.sdk.trace import SpanProcessor, SimpleSpanProcessor
-from opentelemetry.sdk.trace.export import ConsoleSpanExporter
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.resources import Resource
+from opentelemetry.exporter.console import ConsoleSpanExporter
 from prometheus_client import start_http_server
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
