@@ -6,3 +6,4 @@ fastapi
 requests
 psutil
 prometheus_client
+uvicorn
