@@ -5,6 +5,7 @@ opentelemetry-instrumentation-fastapi
 opentelemetry-instrumentation-requests
 opentelemetry-exporter-jaeger
 opentelemetry-exporter-prometheus
+opentelemetry-exporter-console
 fastapi
 requests
 psutil

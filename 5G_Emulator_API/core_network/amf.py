@@ -10,9 +10,8 @@ from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import ConsoleMetricExporter, PeriodicExportingMetricReader
 from opentelemetry.exporter.prometheus import PrometheusMetricReader
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor, ConsoleSpanExporter
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.exporter.console import ConsoleSpanExporter
 from prometheus_client import start_http_server
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
@@ -20,7 +19,8 @@ nrf_url = "http://127.0.0.1:8000"
 smf_url = None
 
 # Initialize OpenTelemetry for Tracing and Metrics
-trace.set_tracer_provider(TracerProvider())
+resource = Resource.create({"service.name": "amf-service"})
+trace.set_tracer_provider(TracerProvider(resource=resource))
 tracer = trace.get_tracer(__name__)
 
 # Setup tracing to console (you can replace this with a Jaeger or Zipkin exporter later)
@@ -29,7 +29,7 @@ trace.get_tracer_provider().add_span_processor(span_processor)
 
 # Initialize OpenTelemetry MeterProvider for Metrics
 metric_reader = PrometheusMetricReader()
-meter_provider = MeterProvider(metric_readers=[metric_reader])
+meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
 metrics.set_meter_provider(meter_provider)
 meter = metrics.get_meter(__name__)
 
@@ -72,6 +72,8 @@ async def lifespan(app: FastAPI):
     start_http_server(9100, addr="0.0.0.0")
 
     yield
+
+    # Cleanup code can go here if needed
 
 app = FastAPI(lifespan=lifespan)
 
