@@ -2,22 +2,38 @@ from fastapi import FastAPI
 import uvicorn
 import requests
 from contextlib import asynccontextmanager
-from opentelemetry import metrics
+import time
+
+# OpenTelemetry imports
+from opentelemetry import metrics, trace
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import ConsoleMetricExporter, PeriodicExportingMetricReader
 from opentelemetry.exporter.prometheus import PrometheusMetricReader
+from opentelemetry.trace import TracerProvider
+from opentelemetry.sdk.trace import SpanProcessor, SimpleSpanProcessor
+from opentelemetry.sdk.trace.export import ConsoleSpanExporter
+from opentelemetry.sdk.resources import Resource
 from prometheus_client import start_http_server
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 nrf_url = "http://127.0.0.1:8000"
 smf_url = None
 
-# Initialize OpenTelemetry MeterProvider
+# Initialize OpenTelemetry for Tracing and Metrics
+trace.set_tracer_provider(TracerProvider())
+tracer = trace.get_tracer(__name__)
+
+# Setup tracing to console (you can replace this with a Jaeger or Zipkin exporter later)
+span_processor = SimpleSpanProcessor(ConsoleSpanExporter())
+trace.get_tracer_provider().add_span_processor(span_processor)
+
+# Initialize OpenTelemetry MeterProvider for Metrics
 metric_reader = PrometheusMetricReader()
 meter_provider = MeterProvider(metric_readers=[metric_reader])
 metrics.set_meter_provider(meter_provider)
 meter = metrics.get_meter(__name__)
 
-# Define OpenTelemetry metrics
+# Define OpenTelemetry Metrics
 request_count = meter.create_counter(
     name="amf_requests_total",
     description="Total AMF requests",
@@ -59,15 +75,29 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+# Automatically instrument FastAPI with OpenTelemetry tracing
+FastAPIInstrumentor.instrument_app(app)
+
 @app.get("/amf_service")
 def amf_service():
-    # Record a metric for the request count
-    request_count.add(1)
+    # Start a trace span for this request
+    with tracer.start_as_current_span("amf_service_request") as span:
+        # Record a metric for the request count
+        request_count.add(1)
 
-    # Simulate a latency measurement
-    with request_latency_histogram.record():
-        # Business logic can go here
-        return {"message": "AMF service response"}
+        # Simulate business logic and measure latency
+        start_time = time.time()
+
+        # Simulate the business logic or process
+        span.add_event("Processing handover request")
+        response = {"message": "AMF service response"}
+
+        # Measure and record the latency
+        latency = time.time() - start_time
+        request_latency_histogram.record(latency)
+        span.set_attribute("latency", latency)
+
+        return response
 
 @app.get("/metrics")
 def metrics_endpoint():
