@@ -1,4 +1,6 @@
 import logging
+import os
+from datetime import datetime
 from fastapi import FastAPI, HTTPException
 import uvicorn
 import requests
@@ -18,8 +20,21 @@ from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExport
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from prometheus_client import start_http_server
 
+# Create logs directory if it doesn't exist
+logs_dir = "logs"
+os.makedirs(logs_dir, exist_ok=True)
+
 # Set up logging
-logging.basicConfig(level=logging.INFO)
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+log_filename = f"{logs_dir}/amf_{timestamp}.log"
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_filename),
+        logging.StreamHandler()
+    ]
+)
 logger = logging.getLogger(__name__)
 
 # Set up tracing
@@ -32,7 +47,8 @@ console_span_exporter = ConsoleSpanExporter()
 trace.get_tracer_provider().add_span_processor(BatchSpanProcessor(console_span_exporter))
 
 # File Exporter (Saves traces to a file)
-file_exporter = OTLPSpanExporter(endpoint="file:/tmp/trace_output.json", insecure=True)
+trace_filename = f"{logs_dir}/trace_output_{timestamp}.json"
+file_exporter = OTLPSpanExporter(endpoint=f"file:{trace_filename}", insecure=True)
 trace.get_tracer_provider().add_span_processor(SimpleSpanProcessor(file_exporter))
 
 # Set up metrics
@@ -64,12 +80,12 @@ async def lifespan(app: FastAPI):
 
         smf_info = requests.get(f"{nrf_url}/discover/SMF").json()
         if 'message' in smf_info:
-            print(f"SMF discovery failed: {smf_info['message']}")
+            logger.error(f"SMF discovery failed: {smf_info['message']}")
         else:
             smf_url = f"http://{smf_info.get('ip')}:{smf_info.get('port')}"
-            print(f"SMF discovered at {smf_url}")
+            logger.info(f"SMF discovered at {smf_url}")
     except requests.RequestException as e:
-        print(f"Failed to register with NRF or discover SMF: {str(e)}")
+        logger.error(f"Failed to register with NRF or discover SMF: {str(e)}")
 
     start_http_server(9100)
     yield
@@ -192,4 +208,5 @@ async def metrics():
     return {"message": "Metrics are exposed on port 9100"}
 
 if __name__ == "__main__":
+    logger.info("Starting AMF service")
     uvicorn.run(app, host="0.0.0.0", port=9000)
