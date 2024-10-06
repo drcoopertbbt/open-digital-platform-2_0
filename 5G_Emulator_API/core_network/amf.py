@@ -1,3 +1,4 @@
+import logging
 from fastapi import FastAPI, HTTPException
 import uvicorn
 import requests
@@ -8,21 +9,31 @@ from typing import Dict
 # OpenTelemetry imports
 from opentelemetry import trace, metrics
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, ConsoleSpanExporter
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader, ConsoleMetricExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.exporter.prometheus import PrometheusMetricReader
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from prometheus_client import start_http_server
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Set up tracing
 resource = Resource.create({"service.name": "amf-service"})
 trace.set_tracer_provider(TracerProvider(resource=resource))
 tracer = trace.get_tracer(__name__)
+
+# Console Span Exporter
 console_span_exporter = ConsoleSpanExporter()
-span_processor = BatchSpanProcessor(console_span_exporter)
-trace.get_tracer_provider().add_span_processor(span_processor)
+trace.get_tracer_provider().add_span_processor(BatchSpanProcessor(console_span_exporter))
+
+# File Exporter (Saves traces to a file)
+file_exporter = OTLPSpanExporter(endpoint="file:/tmp/trace_output.json", insecure=True)
+trace.get_tracer_provider().add_span_processor(SimpleSpanProcessor(file_exporter))
 
 # Set up metrics
 metric_reader = PrometheusMetricReader()
@@ -78,13 +89,17 @@ def handle_ngap_handover_request(request_data: Dict):
         span.set_attribute("ngap.message_type", "NGAP_HANDOVER_REQUEST")
         span.set_attribute("ngap.source_gnb_id", request_data['source_gnb_id'])
         
+        logger.info(f"Handling NGAP Handover Request for UE: {request_data['ue_id']} from source gNB: {request_data['source_gnb_id']}")
+        
         # Simulate processing of handover request
         ue_id = request_data['ue_id']
         if ue_id not in ue_contexts:
+            logger.error(f"UE context for {ue_id} not found!")
             raise HTTPException(status_code=404, detail="UE context not found")
         
         # Decide on target gNB (simplified logic)
         target_gnb_id = "gnb002" if request_data['source_gnb_id'] == "gnb001" else "gnb001"
+        logger.info(f"Decided target gNB for UE {ue_id}: {target_gnb_id}")
         
         # Update UE context
         ue_contexts[ue_id]['target_gnb_id'] = target_gnb_id
@@ -98,6 +113,7 @@ def send_ngap_handover_request_ack(source_gnb_id: str):
     with tracer.start_as_current_span("ngap_handover_request_ack") as span:
         span.set_attribute("ngap.message_type", "NGAP_HANDOVER_REQUEST_ACK")
         span.set_attribute("ngap.source_gnb_id", source_gnb_id)
+        logger.info(f"Sending NGAP Handover Request Acknowledge to source gNB: {source_gnb_id}")
         # Simulate sending acknowledgment
         time.sleep(0.01)  # Simulate network delay
 
@@ -106,11 +122,16 @@ def initiate_ngap_resource_setup(target_gnb_id: str):
         span.set_attribute("ngap.message_type", "NGAP_RESOURCE_SETUP_REQUEST")
         span.set_attribute("ngap.target_gnb_id", target_gnb_id)
         
+        logger.info(f"Initiating resource setup for target gNB: {target_gnb_id}")
+        
         # Simulate sending resource setup request to target gNB
         time.sleep(0.02)  # Simulate network delay
+        logger.info(f"Resource setup request sent to {target_gnb_id}")
         
         # Simulate receiving resource setup response
         time.sleep(0.02)  # Simulate network delay
+        logger.info(f"Resource setup response received from {target_gnb_id}")
+        
         span.add_event("Resource setup completed")
 
 def send_ngap_handover_command(source_gnb_id: str, target_gnb_id: str):
@@ -119,12 +140,15 @@ def send_ngap_handover_command(source_gnb_id: str, target_gnb_id: str):
         span.set_attribute("ngap.source_gnb_id", source_gnb_id)
         span.set_attribute("ngap.target_gnb_id", target_gnb_id)
         
+        logger.info(f"Sending NGAP Handover Command from source gNB: {source_gnb_id} to target gNB: {target_gnb_id}")
+        
         # Simulate sending handover command to source gNB
         time.sleep(0.01)  # Simulate network delay
         
         # Wait for handover complete message
         time.sleep(0.03)  # Simulate handover execution time
         span.add_event("Handover completed")
+        logger.info(f"Handover completed for UE at target gNB: {target_gnb_id}")
 
 @app.post("/amf/handover")
 async def amf_handover(request_data: Dict):
@@ -145,8 +169,10 @@ async def amf_handover(request_data: Dict):
         duration = time.time() - start_time
         handover_duration_histogram.record(duration)
         
+        logger.info(f"Handover process completed in {duration} seconds")
         return {"message": "Handover process completed", "duration": duration}
     except Exception as e:
+        logger.error(f"Handover failed: {str(e)}")
         return {"message": f"Handover failed: {str(e)}"}
 
 @app.get("/amf/ue/{ue_id}")
@@ -158,6 +184,7 @@ async def get_ue_context(ue_id: str):
 @app.post("/amf/ue/{ue_id}")
 async def create_ue_context(ue_id: str, context: Dict):
     ue_contexts[ue_id] = context
+    logger.info(f"UE context created for {ue_id}")
     return {"message": "UE context created"}
 
 @app.get("/metrics")
