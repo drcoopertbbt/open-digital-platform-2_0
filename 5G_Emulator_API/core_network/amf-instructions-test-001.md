@@ -48,11 +48,17 @@ curl -X GET http://localhost:9000/amf/ue/ue001
 Prometheus PromQL
 
 ```bash
+histogram_quantile(0.75, sum(rate(ngap_handover_duration_seconds_bucket[5m])) by (le))
+```
+
+```bash
 # total number of handover requests
 ngap_handover_requests_total
+
 # rate of handover requests per second over the last 5 minutes
 rate(ngap_handover_requests_total[5m])
 ngap_handover_duration_seconds_bucket
+
 # add multiple panels - compare different percentiles side by side
 histogram_quantile(0.95, rate(ngap_handover_duration_seconds_bucket[5m]))
 histogram_quantile(0.99, rate(ngap_handover_duration_seconds_bucket[5m]))
