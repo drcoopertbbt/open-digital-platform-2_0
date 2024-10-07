@@ -1,2 +1,5 @@
 2024-10-07 15:44:09,973 - __main__ - INFO - Starting AMF service
 2024-10-07 15:44:09,987 - __main__ - INFO - SMF discovered at http://127.0.0.1:9001
+2024-10-07 15:50:23,316 - __main__ - INFO - Handling NGAP Handover Request for UE: ue001 from source gNB: gnb001
+2024-10-07 15:50:23,316 - __main__ - ERROR - UE context for ue001 not found!
+2024-10-07 15:50:23,353 - __main__ - ERROR - Handover failed: 404: UE context not found
