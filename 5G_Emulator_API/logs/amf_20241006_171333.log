@@ -1,0 +1,12 @@
+2024-10-06 17:13:33,101 - __main__ - INFO - Starting AMF service
+2024-10-06 17:13:33,115 - __main__ - INFO - SMF discovered at http://127.0.0.1:9001
+2024-10-06 17:14:52,498 - __main__ - INFO - UE context created for ue001
+2024-10-06 17:16:23,303 - __main__ - INFO - Handling NGAP Handover Request for UE: ue001 from source gNB: gnb001
+2024-10-06 17:16:23,303 - __main__ - INFO - Decided target gNB for UE ue001: gnb002
+2024-10-06 17:16:23,303 - __main__ - INFO - Sending NGAP Handover Request Acknowledge to source gNB: gnb001
+2024-10-06 17:16:23,314 - __main__ - INFO - Initiating resource setup for target gNB: gnb002
+2024-10-06 17:16:23,334 - __main__ - INFO - Resource setup request sent to gnb002
+2024-10-06 17:16:23,354 - __main__ - INFO - Resource setup response received from gnb002
+2024-10-06 17:16:23,355 - __main__ - INFO - Sending NGAP Handover Command from source gNB: gnb001 to target gNB: gnb002
+2024-10-06 17:16:23,395 - __main__ - INFO - Handover completed for UE at target gNB: gnb002
+2024-10-06 17:16:23,396 - __main__ - INFO - Handover process completed in 0.09277558326721191 seconds

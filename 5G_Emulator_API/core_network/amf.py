@@ -7,16 +7,16 @@ import requests
 from contextlib import asynccontextmanager
 import time
 from typing import Dict
+import json
 
 # OpenTelemetry imports
 from opentelemetry import trace, metrics
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, ConsoleSpanExporter
+from opentelemetry.sdk.trace import TracerProvider, Span
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader, ConsoleMetricExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.exporter.prometheus import PrometheusMetricReader
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from prometheus_client import start_http_server
 
@@ -37,19 +37,54 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Custom JSON File Exporter
+class JsonFileExporter(SpanExporter):
+    def __init__(self, file_path):
+        self.file_path = file_path
+
+    def export(self, spans):
+        with open(self.file_path, 'a') as f:
+            for span in spans:
+                json.dump(self._span_to_dict(span), f)
+                f.write('\n')
+        return None
+
+    def shutdown(self):
+        pass
+
+    def _span_to_dict(self, span: Span):
+        return {
+            "name": span.name,
+            "context": {
+                "trace_id": hex(span.context.trace_id),
+                "span_id": hex(span.context.span_id),
+            },
+            "kind": span.kind.name,
+            "start_time": span.start_time,
+            "end_time": span.end_time,
+            "status": {
+                "status_code": span.status.status_code.name,
+            },
+            "attributes": dict(span.attributes),
+            "events": [
+                {
+                    "name": event.name,
+                    "timestamp": event.timestamp,
+                    "attributes": dict(event.attributes),
+                }
+                for event in span.events
+            ],
+        }
+
 # Set up tracing
 resource = Resource.create({"service.name": "amf-service"})
 trace.set_tracer_provider(TracerProvider(resource=resource))
 tracer = trace.get_tracer(__name__)
 
-# Console Span Exporter
-console_span_exporter = ConsoleSpanExporter()
-trace.get_tracer_provider().add_span_processor(BatchSpanProcessor(console_span_exporter))
-
 # File Exporter (Saves traces to a file)
 trace_filename = f"{logs_dir}/trace_output_{timestamp}.json"
-file_exporter = OTLPSpanExporter(endpoint=f"file:{trace_filename}", insecure=True)
-trace.get_tracer_provider().add_span_processor(SimpleSpanProcessor(file_exporter))
+file_exporter = JsonFileExporter(trace_filename)
+trace.get_tracer_provider().add_span_processor(BatchSpanProcessor(file_exporter))
 
 # Set up metrics
 metric_reader = PrometheusMetricReader()
