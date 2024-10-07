@@ -118,3 +118,10 @@ For detailed instructions, refer to the **test_instructions.md**.
 ## Logs and Telemetry
 
 Logs for all network operations are saved in the **logs** directory. Additionally, telemetry data is collected under **OpenTelemetry_Data**, providing insight into network performance and metrics.
+
+
+### Example Screenshots
+
+![alt text](image.png)
+
+![alt text](image-1.png)
